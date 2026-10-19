@@ -10,6 +10,8 @@ struct CrossingReport {
     uint64_t t0Ms = 0;  // when the first activity began
     float ambientDba = 0.0f;  // background level just before t0
     float peakDba = 0.0f;  // loudest 125 ms meter reading in the episode
+    float selDba = 0.0f;  // sound exposure level while any event was active
+    uint32_t activeMs = 0;  // time any detector was mid-event
     bool hasBell = false;
     BellEvent bell;
     bool hasHorn = false;
@@ -35,6 +37,7 @@ public:
 private:
     void ensureOpen(uint64_t nowMs, float ambientDba);
 
+    double energySec_ = 0.0;  // sum of 10^(L/10) * seconds, for SEL
     bool open_ = false;
     uint64_t lastActivityMs_ = 0;
     CrossingReport cur_;

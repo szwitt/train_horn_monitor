@@ -29,7 +29,7 @@ All thresholds live in [`src/config.h`](src/config.h). They are starting estimat
 `crossing` (one per train, under 1 KB). Times are milliseconds relative to `t0`:
 
 ```json
-{"v":1,"node":2,"dist_ft":100,"t0":1760000100,"t0_ms":304,"amb":50.0,"peak":98.0,
+{"v":1,"node":2,"dist_ft":100,"t0":1760000100,"t0_ms":304,"amb":50.0,"peak":98.0,"sel":109.6,"act":61625,
  "bell":{"s":0,"e":59408,"n":172,"iv":347},
  "horn":{"s":16701,"e":32704,"pat":true,"peak":98.0,"n":4,"more":0,
          "b":[[16701,2508],[20194,2508],[23687,1015],[25687,7017]]},
@@ -41,6 +41,8 @@ All thresholds live in [`src/config.h`](src/config.h). They are starting estimat
 | `t0`, `t0_ms` | Episode start, epoch seconds plus milliseconds |
 | `amb` | Ambient dB(A) before the episode |
 | `peak` | Loudest 125 ms meter reading, dB(A) |
+| `sel` | Sound exposure level of the whole event (bell, horn and train together), dB(A) |
+| `act` | Milliseconds the event was active |
 | `bell` | Start, end, strike count, mean strike interval (ms) |
 | `horn` | Start, end, FRA pattern found, peak dB(A), blast count, extra sequences, blasts as `[start, duration]` |
 | `train` | Start, end, Leq over the passage, loudest 1 s Leq |

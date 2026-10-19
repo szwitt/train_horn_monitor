@@ -1,6 +1,7 @@
 #include "Episode.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdarg>
 #include <cstdio>
 
@@ -12,6 +13,7 @@ void EpisodeBuilder::ensureOpen(uint64_t nowMs, float ambientDba) {
     cur_ = CrossingReport();
     cur_.t0Ms = nowMs;
     cur_.ambientDba = ambientDba;
+    energySec_ = 0.0;
     lastActivityMs_ = nowMs;
 }
 
@@ -24,9 +26,14 @@ void EpisodeBuilder::tick(uint64_t nowMs, bool anyActive, float dba, float ambie
         return;
     }
     cur_.peakDba = std::max(cur_.peakDba, dba);
+    if (anyActive) {
+        energySec_ += std::pow(10.0, dba / 10.0) * (cfg::kMeterReadingMs / 1000.0);
+        cur_.activeMs += cfg::kMeterReadingMs;
+    }
 
     uint32_t closeAfter = cur_.hasTrain ? cfg::kEpisodeIdleCloseMs : cfg::kEpisodeNoTrainCloseMs;
     if (!anyActive && nowMs >= lastActivityMs_ + closeAfter) {
+        cur_.selDba = energySec_ > 0.0 ? (float)(10.0 * std::log10(energySec_)) : 0.0f;
         done_ = cur_;
         ready_ = true;
         open_ = false;
@@ -100,8 +107,9 @@ long rel(uint64_t t, uint64_t t0) {
 
 size_t reportToJson(const CrossingReport &r, int nodeId, int distanceFt, char *buf, size_t bufSize) {
     JsonWriter w{buf, bufSize};
-    w.add("{\"v\":1,\"node\":%d,\"dist_ft\":%d,\"t0\":%lu,\"t0_ms\":%u,\"amb\":%.1f,\"peak\":%.1f", nodeId,
-          distanceFt, (unsigned long)(r.t0Ms / 1000), (unsigned)(r.t0Ms % 1000), r.ambientDba, r.peakDba);
+    w.add("{\"v\":1,\"node\":%d,\"dist_ft\":%d,\"t0\":%lu,\"t0_ms\":%u,\"amb\":%.1f,\"peak\":%.1f,\"sel\":%.1f,\"act\":%lu",
+          nodeId, distanceFt, (unsigned long)(r.t0Ms / 1000), (unsigned)(r.t0Ms % 1000), r.ambientDba, r.peakDba,
+          r.selDba, (unsigned long)r.activeMs);
 
     if (r.hasBell) {
         w.add(",\"bell\":{\"s\":%ld,\"e\":%ld,\"n\":%u,\"iv\":%u}", rel(r.bell.startMs, r.t0Ms),

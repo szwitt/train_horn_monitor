@@ -218,6 +218,10 @@ void testFullCrossing() {
     CHECK_NEAR((r.train.endMs - epoch) / 1000.0, 158.0, 1.5);
     CHECK_NEAR(r.ambientDba, 50.0, 1.0);
 
+    // SEL is dominated by the 13 s of horn at 98 dBA (98 + 10*log10(13) = 109.1), plus train and bell
+    CHECK_NEAR(r.selDba, 109.5, 1.0);
+    CHECK(r.activeMs >= 60000);
+
     // Horn lead time: 16 s, inside the FRA 15 to 20 s window
     double lead = ((double)r.train.startMs - (double)r.horn.startMs) / 1000.0;
     CHECK(lead >= 15.0 && lead <= 20.0);
