@@ -1,0 +1,11 @@
+{% extends "_base.html" %}
+{% import "_widgets.html" as w with context %}
+{% block body %}
+<div class="card">
+{% if widget == "stats" %}{{ w.tiles(stats) }}
+{% elif widget == "horn-hours" %}{{ w.horn_hours(hours) }}
+{% elif widget == "dnl" %}{{ w.dnl(dnl) }}
+{% elif widget == "log" %}{{ w.log(log, True) }}
+{% endif %}
+</div>
+{% endblock %}

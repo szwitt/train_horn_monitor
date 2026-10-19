@@ -1,0 +1,36 @@
+{% extends "_base.html" %}
+{% import "_widgets.html" as w with context %}
+{% block title %}Crossing {{ c.id }}, {{ when }}{% endblock %}
+{% block body %}
+<div class="wrap">
+  <p><a href="{{ url_for('dashboard') }}">All crossings</a></p>
+  <h1>Train at {{ when }}</h1>
+  <p class="sub">
+    {% if c.train_duration_s is not none %}Took {{ "%.0f" | format(c.train_duration_s) }} s to pass. {% endif %}
+    {% if c.horn_lead_s is not none %}Horn started {{ c.horn_lead_s }} s before arrival. {% endif %}
+    {% if c.bell_lead_s is not none %}Bell started {{ c.bell_lead_s }} s before arrival.{% endif %}
+  </p>
+  <div class="card">
+    <h2>FRA checks</h2>
+    <table>
+      <tr><th>Rule</th><th>Result</th><th>Detail</th></tr>
+      {% for ch in c.checks %}
+      <tr><td>{{ RULE_NAMES.get(ch.rule, ch.rule) }}</td><td>{{ w.status_cell(ch.status) }}</td><td>{{ ch.detail }}</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+  <div class="card">
+    <h2>Levels by distance</h2>
+    <div class="table-scroll"><table>
+      <tr><th>Distance</th><th>Ambient</th><th>Peak</th><th>SEL</th><th>Horn peak</th><th>Train Leq</th></tr>
+      {% for n in c.nodes %}
+      <tr><td>{{ n.dist_ft }} ft</td>
+        {% for v in (n.ambient_dba, n.peak_dba, n.sel_dba, n.horn_peak_dba, n.train_leq_dba) %}
+        <td>{{ "%.1f dB(A)" | format(v) if v is not none else "" }}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </table></div>
+  </div>
+</div>
+{% endblock %}

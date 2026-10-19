@@ -1,0 +1,13 @@
+{% extends "_base.html" %}
+{% import "_widgets.html" as w with context %}
+{% block body %}
+<div class="wrap">
+  <h1>Atchinson Rd crossing noise</h1>
+  <p class="sub">FRA crossing 085770G, Olympia, WA. Four sound monitors at 50, 100, 200 and 400 ft from the track.</p>
+  <div class="card">{{ w.tiles(stats) }}</div>
+  <div class="card">{{ w.horn_hours(hours) }}</div>
+  <div class="card">{{ w.dnl(dnl) }}</div>
+  <div class="card">{{ w.log(log, True) }}</div>
+  <p class="note">Horn loudness from wayside monitors is an estimate, not an FRA test result. A horn lead of 11.4 to 15 s is marked unverified: it is legal only for trains above 60 mph.</p>
+</div>
+{% endblock %}

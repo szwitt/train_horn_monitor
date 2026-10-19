@@ -1,0 +1,116 @@
+/* Train Horn Monitor: dashboard and embed styles. Light and dark tokens. */
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface-1: #fcfcfb;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.10);
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --deemph: #c3c2b7;
+  --good: #0ca30c;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+  --warning: #fab219;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface-1: #1a1a19;
+    --text-primary: #f0efec;
+    --text-secondary: #c3c2b7;
+    --text-muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255, 255, 255, 0.10);
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --deemph: #4a4a46;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d;
+  --surface-1: #1a1a19;
+  --text-primary: #f0efec;
+  --text-secondary: #c3c2b7;
+  --text-muted: #898781;
+  --grid: #2c2c2a;
+  --axis: #383835;
+  --border: rgba(255, 255, 255, 0.10);
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --deemph: #4a4a46;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--text-primary);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+body.embed { background: var(--surface-1); }
+.wrap { max-width: 1040px; margin: 0 auto; padding: 24px 16px 48px; }
+h1 { font-size: 22px; margin: 0 0 4px; }
+h2 { font-size: 15px; margin: 0 0 2px; }
+.sub { color: var(--text-secondary); margin: 0 0 20px; }
+.note { color: var(--text-muted); font-size: 12px; margin: 4px 0 0; }
+a { color: var(--series-1); }
+
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+body.embed .card { border: 0; margin: 0; border-radius: 0; }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.tile .value { font-size: 36px; font-weight: 600; line-height: 1.1; }
+.tile .label { color: var(--text-secondary); }
+.tile .detail { color: var(--text-muted); font-size: 12px; }
+
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart text { fill: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.chart .label-strong { fill: var(--text-primary); font-size: 12px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 8px 0 4px; color: var(--text-secondary); font-size: 12px; }
+.legend span::before {
+  content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px;
+  margin-right: 6px; vertical-align: -1px; background: var(--swatch);
+}
+.tooltip {
+  position: absolute; pointer-events: none; display: none; z-index: 2;
+  background: var(--surface-1); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12); font-size: 12px; white-space: nowrap;
+}
+.tooltip .muted { color: var(--text-secondary); }
+
+details { margin-top: 8px; color: var(--text-secondary); font-size: 12px; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--grid); }
+th { color: var(--text-secondary); font-weight: 600; font-size: 12px; }
+.table-scroll { overflow-x: auto; }
+
+.status { white-space: nowrap; font-size: 12px; }
+.status::before { margin-right: 4px; font-weight: 700; }
+.status.pass::before { content: "\2713"; color: var(--good); }
+.status.fail::before { content: "\2715"; color: var(--critical); }
+.status.unverified::before { content: "?"; color: var(--serious); }
+.status.not_detected::before { content: "\2013"; color: var(--text-muted); }
+.status.indicator::before { content: "i"; color: var(--text-muted); }
+.empty { color: var(--text-muted); padding: 24px 0; text-align: center; }

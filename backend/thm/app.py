@@ -9,10 +9,15 @@ Environment:
 import hmac
 import json
 import os
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
-from flask import Flask, abort, g, jsonify, request
+from flask import Flask, abort, g, jsonify, redirect, render_template, request, url_for
 
-from . import compliance, db, ingest, metrics, report
+from . import analytics, compliance, db, ingest, metrics, report
+
+EMBED_WIDGETS = ("stats", "horn-hours", "dnl", "log")
+DEFAULT_DAYS = 30
 
 
 def create_app(db_path=None, token=None, tz_name=None):
@@ -79,6 +84,75 @@ def create_app(db_path=None, token=None, tz_name=None):
     @app.get("/api/daily/<day>")
     def daily(day):
         return jsonify(metrics.daily_summary(conn(), day, app.config["TZ"]))
+
+    def days_arg():
+        return max(1, min(int(request.args.get("days", DEFAULT_DAYS)), 365))
+
+    @app.after_request
+    def allow_embedding(resp):
+        # Public read-only data, so external sites can fetch it directly
+        if request.method == "GET" and request.path.startswith("/api/"):
+            resp.headers["Access-Control-Allow-Origin"] = "*"
+        return resp
+
+    @app.context_processor
+    def template_globals():
+        return {"STATUS_WORDS": report.STATUS_WORDS, "RULE_NAMES": report.RULE_NAMES,
+                "theme": request.args.get("theme", ""), "embed": False, "refresh": None}
+
+    @app.get("/api/stats")
+    def api_stats():
+        return jsonify(analytics.stats(conn(), app.config["TZ"]))
+
+    @app.get("/api/series/horn-hours")
+    def api_horn_hours():
+        return jsonify(analytics.horn_by_hour(conn(), app.config["TZ"], days_arg()))
+
+    @app.get("/api/series/dnl")
+    def api_dnl():
+        return jsonify(analytics.dnl_series(conn(), app.config["TZ"], days_arg()))
+
+    @app.get("/api/log")
+    def api_log():
+        limit = min(int(request.args.get("limit", 50)), 500)
+        return jsonify(analytics.crossing_log(conn(), app.config["TZ"], limit))
+
+    def widget_data(widget, days):
+        tz = app.config["TZ"]
+        data = {}
+        if widget in ("all", "stats"):
+            data["stats"] = analytics.stats(conn(), tz)
+        if widget in ("all", "horn-hours"):
+            data["hours"] = analytics.horn_by_hour(conn(), tz, days)
+        if widget in ("all", "dnl"):
+            data["dnl"] = analytics.dnl_series(conn(), tz, days)
+        if widget in ("all", "log"):
+            data["log"] = analytics.crossing_log(conn(), tz, 25)
+        return data
+
+    @app.get("/")
+    def index():
+        return redirect(url_for("dashboard"))
+
+    @app.get("/dashboard")
+    def dashboard():
+        return render_template("dashboard.html", refresh=300, **widget_data("all", days_arg()))
+
+    @app.get("/embed/<widget>")
+    def embed(widget):
+        if widget not in EMBED_WIDGETS:
+            abort(404)
+        return render_template("embed.html", widget=widget, embed=True, refresh=300,
+                               **widget_data(widget, days_arg()))
+
+    @app.get("/crossing/<int:crossing_id>")
+    def crossing_page(crossing_id):
+        row = conn().execute("SELECT * FROM crossings WHERE id = ?", (crossing_id,)).fetchone()
+        if row is None:
+            abort(404)
+        when = datetime.fromtimestamp(row["ref_ms"] / 1000, ZoneInfo(app.config["TZ"]))
+        return render_template("crossing.html", c=crossing_detail(row),
+                               when=when.strftime("%Y-%m-%d %I:%M %p %Z"))
 
     @app.get("/health")
     def health():
