@@ -47,7 +47,7 @@ All thresholds live in [`src/config.h`](src/config.h). They are starting estimat
 | `horn` | Start, end, FRA pattern found, peak dB(A), blast count, extra sequences, blasts as `[start, duration]` |
 | `train` | Start, end, Leq over the passage, loudest 1 s Leq |
 
-`heartbeat` (every 15 minutes): `node`, `dist_ft`, `amb`, `leq` (energy average since the last heartbeat), `soc` (battery %), `busy`.
+`heartbeat` (every 15 minutes): `node`, `dist_ft`, `amb`, `leq` (energy average since the last heartbeat), `soc` (battery %, -1 on an Argon bench unit, which has no fuel gauge), `busy`.
 
 ## Setup
 

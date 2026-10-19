@@ -154,12 +154,21 @@ void sampleMeter(uint64_t tMs) {
     ambientDba = processor.ambientDba();
 }
 
+// Battery percent. The Boron has a fuel gauge; the Argon bench unit doesn't, so it reports -1.
+float batteryPercent() {
+#if Wiring_Cellular
+    return System.batteryCharge();
+#else
+    return -1.0f;
+#endif
+}
+
 void sendHeartbeat() {
     char buf[200];
     snprintf(buf, sizeof(buf),
              "{\"v\":1,\"node\":%ld,\"dist_ft\":%ld,\"amb\":%.1f,\"leq\":%.1f,\"soc\":%.0f,\"busy\":%s}",
              nodeConfig.nodeId, nodeConfig.distanceFt, processor.ambientDba(), processor.takeIntervalLeq(),
-             System.batteryCharge(), processor.busy() ? "true" : "false");
+             batteryPercent(), processor.busy() ? "true" : "false");
     queuePublish(eventName("heartbeat"), buf);
 }
 
