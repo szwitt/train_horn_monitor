@@ -42,6 +42,7 @@ def connect(path):
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA journal_mode = WAL")  # several web workers share the file
     conn.executescript(SCHEMA)
     return conn
 

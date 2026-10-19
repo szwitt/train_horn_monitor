@@ -38,6 +38,43 @@ FRA checks:
 
 Arrival is the train start heard at the node nearest the track. Horn start is the earliest horn heard by any node.
 
+## Dashboard and embeds
+
+`/dashboard` shows headline counters, horn use by hour of day, day-night level by distance, and a log of recent crossings that links to each train's page (`/crossing/<id>`). Pages refresh every 5 minutes and follow the viewer's light or dark setting.
+
+Each part can be embedded on another site with an iframe:
+
+| Widget | URL |
+| --- | --- |
+| Counters: trains today, night horns this week, horn timing pass rate | `/embed/stats` |
+| Trains sounding the horn by hour (night hours highlighted) | `/embed/horn-hours` |
+| Day-night level by distance | `/embed/dnl` |
+| Recent crossings | `/embed/log` |
+
+```html
+<iframe src="https://<your-host>/embed/horn-hours" width="100%" height="380"
+        style="border:0" title="Train horns by hour, Atchinson Rd crossing"></iframe>
+```
+
+Add `?theme=light` or `?theme=dark` to force a theme, and `?days=90` to change the window (charts default to 30 days). The same numbers are available as JSON for sites that draw their own charts, with cross-origin reads allowed: `/api/stats`, `/api/series/horn-hours`, `/api/series/dnl`, `/api/log`.
+
+To preview with a month of made-up data:
+
+```sh
+python -m thm.demo demo.sqlite3
+THM_DB=demo.sqlite3 THM_TOKEN=x flask --app "thm.app:create_app()" run
+```
+
+## Deploying on Render
+
+`render.yaml` at the repo root is a Render Blueprint: one web service with a 1 GB persistent disk for the database.
+
+1. In Render, choose New, then Blueprint, and pick this repository.
+2. After the first deploy, copy the generated `THM_TOKEN` from the service's Environment page.
+3. Set up the Particle webhooks below with `https://<service>.onrender.com/particle` and that token.
+
+The disk keeps the data across deploys. A service with a disk runs as a single instance, which is plenty for four nodes.
+
 ## Running it
 
 ```sh
@@ -53,7 +90,7 @@ flask --app "thm.app:create_app()" run --host 0.0.0.0 --port 8080
 | `THM_DB` | `thm.sqlite3` | SQLite database file |
 | `THM_TZ` | `America/Los_Angeles` | Local time zone for night hours and daily metrics |
 
-For anything beyond testing, run it behind HTTPS (Particle webhooks need a public URL), for example with gunicorn behind a reverse proxy.
+For anything beyond testing, run it behind HTTPS (Particle webhooks need a public URL), for example with `gunicorn "thm.app:create_app()"` behind a reverse proxy, or use the Render setup above.
 
 ## Particle webhook setup
 

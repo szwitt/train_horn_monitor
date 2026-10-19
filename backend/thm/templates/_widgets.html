@@ -1,0 +1,70 @@
+{% macro status_cell(status) -%}
+{%- if status -%}
+<span class="status {{ status }}">{{ STATUS_WORDS.get(status, status) }}</span>
+{%- else -%}<span class="status not_detected">n/a</span>{%- endif -%}
+{%- endmacro %}
+
+{% macro tiles(stats) %}
+<div class="tiles">
+  <div class="tile">
+    <div class="value">{{ stats.trains_today }}</div>
+    <div class="label">Trains today</div>
+    <div class="detail">{{ stats.date }}</div>
+  </div>
+  <div class="tile">
+    <div class="value">{{ stats.night_horns_7d }}</div>
+    <div class="label">Night horns, last 7 days</div>
+    <div class="detail">Trains sounding the horn 10 pm to 7 am</div>
+  </div>
+  <div class="tile">
+    <div class="value">{% if stats.horn_timing_pass_pct_30d is not none %}{{ stats.horn_timing_pass_pct_30d }}%{% else %}&ndash;{% endif %}</div>
+    <div class="label">Horn timing pass rate, 30 days</div>
+    <div class="detail">{{ stats.horn_timing_30d.pass }} pass, {{ stats.horn_timing_30d.fail }} fail, {{ stats.horn_timing_30d.unverified }} unverified</div>
+  </div>
+</div>
+{% endmacro %}
+
+{% macro horn_hours(data) %}
+<h2>Trains sounding the horn, by hour</h2>
+<p class="note">Last {{ data.days }} days</p>
+<div class="legend"><span style="--swatch: var(--series-1)">Night (10 pm to 7 am)</span><span style="--swatch: var(--deemph)">Day</span></div>
+<div class="chart" id="horn-hours"></div>
+<script>THM.mount("horn-hours", THM.hornHours, {{ data | tojson }});</script>
+<details><summary>Show data</summary>
+<table><tr><th>Hour</th><th>Trains with horn</th></tr>
+{% for h in data.hours %}<tr><td>{{ "%02d:00" | format(h.hour) }}</td><td>{{ h.count }}</td></tr>{% endfor %}
+</table></details>
+{% endmacro %}
+
+{% macro dnl(data) %}
+<h2>Day-night noise level by distance from the track</h2>
+<p class="note">DNL in dB(A), with the 10 dB night penalty; days with under 80% coverage are left blank</p>
+<div class="legend">
+{% for s in data.series %}<span style="--swatch: var(--series-{{ loop.index0 % 4 + 1 }})">{{ s.dist_ft }} ft</span>{% endfor %}
+</div>
+<div class="chart" id="dnl"></div>
+<script>THM.mount("dnl", THM.dnlLines, {{ data | tojson }});</script>
+<details><summary>Show data</summary>
+<div class="table-scroll"><table><tr><th>Date</th>{% for s in data.series %}<th>{{ s.dist_ft }} ft</th>{% endfor %}</tr>
+{% for d in data.dates %}{% set i = loop.index0 %}<tr><td>{{ d }}</td>{% for s in data.series %}<td>{{ s["values"][i] if s["values"][i] is not none else "" }}</td>{% endfor %}</tr>{% endfor %}
+</table></div></details>
+{% endmacro %}
+
+{% macro log(rows, link) %}
+<h2>Recent crossings</h2>
+{% if not rows %}<p class="empty">No crossings recorded yet.</p>{% else %}
+<div class="table-scroll"><table>
+<tr><th>Time</th><th>Pass time</th><th>Horn lead</th><th>Peak</th><th>Horn timing</th><th>Pattern</th><th>Warning time</th></tr>
+{% for r in rows %}
+<tr>
+  <td>{% if link %}<a href="{{ url_for('crossing_page', crossing_id=r.id) }}" target="_top">{% endif %}{{ r.time[:16].replace("T", " ") }}{% if link %}</a>{% endif %}{% if r.night %} &middot; night{% endif %}</td>
+  <td>{{ "%.0f s" | format(r.train_duration_s) if r.train_duration_s is not none else "" }}</td>
+  <td>{{ "%.1f s" | format(r.horn_lead_s) if r.horn_lead_s is not none else "" }}</td>
+  <td>{{ "%.0f dB(A) at %s ft" | format(r.peak_dba, r.peak_dist_ft) if r.peak_dba is not none else "" }}</td>
+  <td>{{ status_cell(r.checks.get("horn_timing")) }}</td>
+  <td>{{ status_cell(r.checks.get("horn_pattern")) }}</td>
+  <td>{{ status_cell(r.checks.get("warning_time")) }}</td>
+</tr>
+{% endfor %}
+</table></div>{% endif %}
+{% endmacro %}

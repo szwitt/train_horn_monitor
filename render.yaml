@@ -1,0 +1,25 @@
+# Render Blueprint: one web service with a persistent disk for the SQLite database.
+# In Render: New > Blueprint, pick this repo. THM_TOKEN is generated for you;
+# copy it into the Particle webhooks' X-THM-Token header.
+services:
+  - type: web
+    name: train-horn-monitor
+    runtime: python
+    rootDir: backend
+    plan: 0.5c-512mb
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn "thm.app:create_app()" --bind 0.0.0.0:$PORT --workers 2
+    healthCheckPath: /health
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: THM_DB
+        value: /var/data/thm.sqlite3
+      - key: THM_TOKEN
+        generateValue: true
+      - key: THM_TZ
+        value: America/Los_Angeles
+      - key: PYTHON_VERSION
+        value: "3.12.7"

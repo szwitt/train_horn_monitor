@@ -205,3 +205,44 @@ def test_daily_endpoint(client):
     assert d["nodes"][0]["intervals"] == 96
     # 15 day hours at 55, 9 night hours at 50 + 10: 10*log10((15*10^5.5 + 9*10^6)/24) = 57.6
     assert d["nodes"][0]["dnl_dba"] == pytest.approx(57.6, abs=0.1)
+
+
+# ---- Dashboard and embeds ----
+
+def test_stats_and_horn_hours(tmp_path):
+    from thm import analytics
+    conn = db.connect(str(tmp_path / "s.sqlite3"))
+    ingest.store_crossing_event(conn, "d1", node_report(1, 50), "x")  # 11:10 pm, compliant
+    # 9:10 pm (day), horn only 7.7 s before arrival
+    ingest.store_crossing_event(conn, "d1", node_report(1, 50, t0=NIGHT_T0 - 7200, horn_start=25_000), "x")
+    now = datetime(2026, 10, 19, 23, 59, tzinfo=ZoneInfo(TZ))
+
+    s = analytics.stats(conn, TZ, now)
+    assert s["trains_today"] == 2
+    assert s["night_horns_7d"] == 1
+    assert s["horn_timing_30d"]["pass"] == 1 and s["horn_timing_30d"]["fail"] == 1
+    assert s["horn_timing_pass_pct_30d"] == 50
+
+    h = analytics.horn_by_hour(conn, TZ, 30, now)
+    assert h["hours"][23]["count"] == 1 and h["hours"][21]["count"] == 1
+    assert h["hours"][23]["night"] and not h["hours"][12]["night"]
+
+
+@pytest.mark.parametrize("path", ["/dashboard", "/embed/stats", "/embed/horn-hours", "/embed/dnl",
+                                  "/embed/log?theme=dark", "/crossing/1"])
+def test_pages_render(client, path):
+    post(client, webhook("crossing", node_report(1, 50)))
+    r = client.get(path)
+    assert r.status_code == 200
+    assert b"<!doctype html>" in r.data
+
+
+def test_unknown_widget_404(client):
+    assert client.get("/embed/nope").status_code == 404
+
+
+def test_api_allows_cross_origin_reads(client):
+    r = client.get("/api/stats")
+    assert r.status_code == 200
+    assert r.headers["Access-Control-Allow-Origin"] == "*"
+    assert "Access-Control-Allow-Origin" not in client.get("/dashboard").headers
