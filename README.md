@@ -11,7 +11,9 @@ Design notes and the FRA rules being checked: [Design and Rules Brief](https://c
 | Particle Boron (LTE) | |
 | DFRobot Gravity Analog Sound Level Meter (SEN0232) | VCC to 3V3, GND, signal to **A0** |
 | Adafruit PDM MEMS microphone (MP34DT01-M) | 3V to 3V3, GND, CLK to **D2**, DAT to **D3**, SEL open |
-| LiPo battery, optional solar panel to VIN | |
+| LiPo battery | Boron JST battery jack (the Boron has no VIN pin; for solar, use a 5 V solar charger into the USB port) |
+
+![Node wiring: meter to 3V3, GND and A0; PDM mic to 3V3, GND, D2 (CLK) and D3 (DAT)](docs/wiring.svg)
 
 The Gravity meter gives calibrated dB(A). The microphone is only used to tell the bell from the horn from the train, by frequency band and rhythm.
 
