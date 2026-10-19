@@ -2,3 +2,6 @@ target/
 *.bin
 test/test_runner
 .DS_Store
+test/replay
+bench-scenarios/
+__pycache__/
