@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  host-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run detection tests
+        run: make -C test
+
+  boron-compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile for Boron
+        id: compile
+        uses: particle-iot/compile-action@v1
+        with:
+          particle-platform-name: boron
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: boron-firmware
+          path: ${{ steps.compile.outputs.firmware-path }}

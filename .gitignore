@@ -1,0 +1,4 @@
+target/
+*.bin
+test/test_runner
+.DS_Store
