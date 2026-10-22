@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Run detection tests
+      - name: Run detection tests (sound and lights)
         run: make -C test
       - name: Replay crossing scenarios
         run: python3 tools/bench/run_scenarios.py
@@ -44,4 +44,23 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: argon-firmware
+          path: ${{ steps.compile.outputs.firmware-path }}
+
+  lights-compile:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform: [boron, argon]  # Argon is the Wi-Fi bench unit
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile crossing lights node
+        id: compile
+        uses: particle-iot/compile-action@v1
+        with:
+          particle-platform-name: ${{ matrix.platform }}
+          sources-folder: flasher
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: lights-${{ matrix.platform }}-firmware
           path: ${{ steps.compile.outputs.firmware-path }}

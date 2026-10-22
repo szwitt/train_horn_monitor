@@ -2,6 +2,7 @@ target/
 *.bin
 test/test_runner
 .DS_Store
+test/lights_runner
 test/replay
 bench-scenarios/
 __pycache__/

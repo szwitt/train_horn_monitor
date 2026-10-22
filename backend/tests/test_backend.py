@@ -30,6 +30,13 @@ def node_report(node, dist_ft, t0=NIGHT_T0, horn_start=16_700, arrival=32_700, b
     return data
 
 
+def lights_report(t0=NIGHT_T0, start=0, end=60_000, node=5):
+    """A lights node report shaped like the firmware's: flashing from start to end ms after t0."""
+    return {"v": 1, "kind": "lights", "node": node, "dist_ft": 120, "t0": t0 + start // 1000,
+            "t0_ms": start % 1000, "flash": {"s": 0, "e": end - start, "n": 50, "fpm": 50.0, "alt": True,
+                                             "lamps": 2}}
+
+
 def webhook(event, data, device="dev1", published_at="2026-10-20T06:12:00.000Z"):
     return {"event": event, "data": json.dumps(data), "coreid": device, "published_at": published_at}
 
@@ -71,6 +78,26 @@ def test_same_node_twice_in_window_starts_new_crossing(tmp_path):
     first = ingest.store_crossing_event(conn, "d1", node_report(1, 50), "x")
     second = ingest.store_crossing_event(conn, "d1", node_report(1, 50, t0=NIGHT_T0 + 30), "x")
     assert first != second
+
+
+@pytest.mark.parametrize("lights_first", [True, False])
+def test_lights_join_the_train_they_warned(client, lights_first):
+    # Lights from 0 s, train arrives 32.7 s later and takes 25 s to pass
+    reports = [(f"d{n}", node_report(n, d)) for n, d in ((1, 50), (2, 100))]
+    lights = ("dl", lights_report(end=62_000))
+    order = [lights] + reports if lights_first else reports + [lights]
+    ids = {post(client, webhook("crossing", data, device=dev)).get_json()["crossing_id"] for dev, data in order}
+    assert len(ids) == 1
+    c = client.get("/api/crossings").get_json()[0]
+    assert [n["node"] for n in c["nodes"]] == [1, 2]  # levels table is sound nodes only
+    assert c["lights_lead_s"] == 32.7
+    assert c["lights_duration_s"] == 62.0
+
+
+def test_lights_for_another_train_stay_separate(client):
+    a = post(client, webhook("crossing", node_report(1, 50))).get_json()["crossing_id"]
+    b = post(client, webhook("crossing", lights_report(t0=NIGHT_T0 + 600))).get_json()["crossing_id"]
+    assert a != b
 
 
 def test_rejects_bad_token(client):
@@ -154,12 +181,37 @@ def test_no_horn_or_train_not_detected():
     assert status(s, "warning_time") == "not_detected"
 
 
+def test_warning_time_uses_lights_when_seen():
+    # Bell heard 32.7 s ahead, but the lights only started 15 s ahead
+    s = evaluate(node_report(1, 50), lights_report(start=17_700))
+    assert s["lights_lead_s"] == 15.0
+    assert s["bell_lead_s"] == 32.7
+    assert status(s, "warning_time") == "fail"
+    detail = next(c["detail"] for c in s["checks"] if c["rule"] == "warning_time")
+    assert detail.startswith("Lights started 15.0 s") and "bell heard 32.7 s" in detail
+
+    s = evaluate(node_report(1, 50, bell=False), lights_report())
+    assert status(s, "warning_time") == "pass"
+    assert s["lights_lead_s"] == 32.7 and s["bell_lead_s"] is None
+
+
+def test_lights_without_train():
+    s = evaluate(lights_report(end=40_000))
+    assert status(s, "warning_time") == "not_detected"
+    assert "Lights flashed for 40 s" in next(c["detail"] for c in s["checks"] if c["rule"] == "warning_time")
+    assert s["nodes"] == []
+
+
 def test_summary_text(client):
     post(client, webhook("crossing", node_report(1, 50)))
     text = client.get("/api/crossings/1/summary").get_data(as_text=True)
     assert "2026-10-19 23:10" in text
     assert "Horn timing (49 CFR 222.21(b)): Pass." in text
     assert "50 ft (node 1)" in text
+    post(client, webhook("crossing", lights_report(), device="dl"))
+    text = client.get("/api/crossings/1/summary").get_data(as_text=True)
+    assert "Lights lead 32.7 s" in text
+    assert "Lights flashed for 60 s" in text
 
 
 # ---- Day-night level ----
@@ -197,8 +249,12 @@ def test_daily_endpoint(client):
         hb = {"v": 1, "node": 1, "dist_ft": 50, "amb": 45.0, "leq": leq, "soc": 90, "busy": False}
         assert post(client, webhook("heartbeat", hb, published_at=published)).status_code == 200
     post(client, webhook("crossing", node_report(1, 50)))  # 11:10 pm, with horn
+    # The lights node's heartbeats carry no sound level and stay out of DNL
+    lights_hb = {"v": 1, "kind": "lights", "node": 5, "dist_ft": 120, "soc": 80, "la": 300, "lb": 310}
+    post(client, webhook("heartbeat", lights_hb, published_at="2026-10-19T20:00:00.000Z"))
 
     d = client.get("/api/daily/2026-10-19").get_json()
+    assert [n["node"] for n in d["nodes"]] == [1]
     assert d["crossings"] == 1
     assert d["night_crossings"] == 1
     assert d["night_horn_crossings"] == 1

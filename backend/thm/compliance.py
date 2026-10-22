@@ -8,7 +8,8 @@ Rules (see the design brief for sources):
   locomotive occupies the crossing.
 - 49 CFR 229.129: 96 to 110 dB(A) at 100 ft forward of the locomotive. A
   wayside reading can only be an indicator.
-- 49 CFR 234.225: warning system gives at least 20 s warning.
+- 49 CFR 234.225: warning system gives at least 20 s warning. Measured from
+  the lights node when it saw the lights start, else from the bell.
 """
 
 HORN_MIN_S = 15.0
@@ -46,6 +47,9 @@ def blast_letters(horn):
 
 def evaluate(events):
     """Returns the crossing summary: timings, per-node levels and FRA checks."""
+    lights = min((e for e in events if e.get("kind") == "lights"), key=lambda e: _abs(e, "flash"), default=None)
+    events = [e for e in events if e.get("kind") != "lights"]
+    lights_start_ms = _abs(lights, "flash") if lights else None
     train_node = _nearest(events, "train")
     arrival_ms = _abs(train_node, "train") if train_node else None
     horn_events = [e for e in events if "horn" in e]
@@ -60,6 +64,9 @@ def evaluate(events):
         "train_duration_s": None,
         "horn_lead_s": None,
         "bell_lead_s": None,
+        "lights_lead_s": None,
+        "lights_duration_s": None,
+        "lights_fpm": None,
         "nodes": sorted(
             (
                 {
@@ -79,6 +86,9 @@ def evaluate(events):
     }
     checks = summary["checks"]
 
+    if lights:
+        summary["lights_duration_s"] = round((int(lights["flash"]["e"]) - int(lights["flash"]["s"])) / 1000.0, 1)
+        summary["lights_fpm"] = lights["flash"].get("fpm")
     if train_node:
         summary["train_duration_s"] = (int(train_node["train"]["e"]) - int(train_node["train"]["s"])) / 1000.0
 
@@ -140,15 +150,29 @@ def evaluate(events):
             detail = f"{where}, within 96 to 110 dB(A) (wayside estimate only)"
         checks.append(_check("horn_level", INDICATOR, detail))
 
-    # Crossing warning time, using the bell as the start of the warning
+    # Crossing warning time: from the lights when they were seen, else the bell
+    bell_lead = (arrival_ms - bell_start_ms) / 1000.0 if arrival_ms is not None and bell_start_ms is not None else None
+    if bell_lead is not None:
+        summary["bell_lead_s"] = round(bell_lead, 1)
     if arrival_ms is None:
-        checks.append(_check("warning_time", NOT_DETECTED, "No train passage detected"))
+        if lights:
+            checks.append(_check("warning_time", NOT_DETECTED,
+                                 f"Lights flashed for {summary['lights_duration_s']:.0f} s but no train passage "
+                                 "was detected"))
+        else:
+            checks.append(_check("warning_time", NOT_DETECTED, "No train passage detected"))
+    elif lights:
+        lead = (arrival_ms - lights_start_ms) / 1000.0
+        summary["lights_lead_s"] = round(lead, 1)
+        status = PASS if lead >= BELL_MIN_S else FAIL
+        detail = f"Lights started {lead:.1f} s before arrival (at least 20 s)"
+        if bell_lead is not None:
+            detail += f"; bell heard {bell_lead:.1f} s before"
+        checks.append(_check("warning_time", status, detail))
     elif bell_start_ms is None:
         checks.append(_check("warning_time", NOT_DETECTED, "Crossing bell not detected"))
     else:
-        lead = (arrival_ms - bell_start_ms) / 1000.0
-        summary["bell_lead_s"] = round(lead, 1)
-        status = PASS if lead >= BELL_MIN_S else FAIL
-        checks.append(_check("warning_time", status, f"Bell started {lead:.1f} s before arrival (at least 20 s)"))
+        status = PASS if bell_lead >= BELL_MIN_S else FAIL
+        checks.append(_check("warning_time", status, f"Bell started {bell_lead:.1f} s before arrival (at least 20 s)"))
 
     return summary
