@@ -3,6 +3,8 @@
 //
 // Detects the crossing bell, horn blasts and the train passing, then
 // publishes one "crossing" event per train and a "heartbeat" every 15 min.
+// A bench unit in test mode publishes "test-crossing" and "test-heartbeat"
+// instead, which the backend's webhooks don't match.
 
 #include "Particle.h"
 
@@ -30,9 +32,17 @@ struct NodeConfig {
     int32_t nodeId;
     int32_t distanceFt;
     float calOffsetDb;
+    int32_t testMode;  // 1 = bench unit: publish under test- event names
 };
-constexpr uint32_t kConfigMagic = 0x54484d31;  // "THM1"
-NodeConfig nodeConfig = {kConfigMagic, 0, 0, 0.0f};
+struct NodeConfigV1 {
+    uint32_t magic;
+    int32_t nodeId;
+    int32_t distanceFt;
+    float calOffsetDb;
+};
+constexpr uint32_t kConfigMagic = 0x54484d32;  // "THM2"
+constexpr uint32_t kConfigMagicV1 = 0x54484d31;  // "THM1", before test mode
+NodeConfig nodeConfig = {kConfigMagic, 0, 0, 0.0f, 0};
 
 NodeProcessor processor;
 float frame[cfg::kFrameSamples];
@@ -68,14 +78,27 @@ uint64_t nowMs() {
 
 void loadConfig() {
     EEPROM.get(0, nodeConfig);
-    if (nodeConfig.magic != kConfigMagic) {
-        nodeConfig = {kConfigMagic, 0, 0, 0.0f};
+    if (nodeConfig.magic == kConfigMagic) {
+        return;
+    }
+    NodeConfigV1 v1;
+    EEPROM.get(0, v1);
+    if (v1.magic == kConfigMagicV1) {
+        nodeConfig = {kConfigMagic, v1.nodeId, v1.distanceFt, v1.calOffsetDb, 0};
+    } else {
+        nodeConfig = {kConfigMagic, 0, 0, 0.0f, 0};
     }
 }
 
-// "node=1,dist=50,cal=-1.5" (any subset)
+const char *eventName(const char *name) {
+    static char buf[32];
+    snprintf(buf, sizeof(buf), "%s%s", nodeConfig.testMode ? "test-" : "", name);
+    return buf;
+}
+
+// "node=1,dist=50,cal=-1.5,test=0" (any subset)
 int setConfig(String arg) {
-    int node, dist;
+    int node, dist, test;
     float cal;
     const char *s = arg.c_str();
     if (const char *p = strstr(s, "node=")) {
@@ -87,9 +110,12 @@ int setConfig(String arg) {
     if (const char *p = strstr(s, "cal=")) {
         if (sscanf(p, "cal=%f", &cal) == 1) nodeConfig.calOffsetDb = cal;
     }
+    if (const char *p = strstr(s, "test=")) {
+        if (sscanf(p, "test=%d", &test) == 1) nodeConfig.testMode = test ? 1 : 0;
+    }
     EEPROM.put(0, nodeConfig);
-    Log.info("config node=%ld dist=%ld cal=%.1f", nodeConfig.nodeId, nodeConfig.distanceFt,
-             nodeConfig.calOffsetDb);
+    Log.info("config node=%ld dist=%ld cal=%.1f test=%ld", nodeConfig.nodeId, nodeConfig.distanceFt,
+             nodeConfig.calOffsetDb, nodeConfig.testMode);
     return 0;
 }
 
@@ -128,13 +154,22 @@ void sampleMeter(uint64_t tMs) {
     ambientDba = processor.ambientDba();
 }
 
+// Battery percent. The Boron has a fuel gauge; the Argon bench unit doesn't, so it reports -1.
+float batteryPercent() {
+#if Wiring_Cellular
+    return System.batteryCharge();
+#else
+    return -1.0f;
+#endif
+}
+
 void sendHeartbeat() {
     char buf[200];
     snprintf(buf, sizeof(buf),
              "{\"v\":1,\"node\":%ld,\"dist_ft\":%ld,\"amb\":%.1f,\"leq\":%.1f,\"soc\":%.0f,\"busy\":%s}",
              nodeConfig.nodeId, nodeConfig.distanceFt, processor.ambientDba(), processor.takeIntervalLeq(),
-             System.batteryCharge(), processor.busy() ? "true" : "false");
-    queuePublish("heartbeat", buf);
+             batteryPercent(), processor.busy() ? "true" : "false");
+    queuePublish(eventName("heartbeat"), buf);
 }
 
 }  // namespace
@@ -191,7 +226,7 @@ void loop() {
         CrossingReport r = processor.takeReport();
         char buf[1024];
         if (reportToJson(r, nodeConfig.nodeId, nodeConfig.distanceFt, buf, sizeof(buf))) {
-            queuePublish("crossing", buf);
+            queuePublish(eventName("crossing"), buf);
             Log.info("crossing %s", buf);
         } else {
             Log.error("crossing report too large");

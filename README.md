@@ -49,7 +49,7 @@ All thresholds live in [`src/config.h`](src/config.h). They are starting estimat
 | `horn` | Start, end, FRA pattern found, peak dB(A), blast count, extra sequences, blasts as `[start, duration]` |
 | `train` | Start, end, Leq over the passage, loudest 1 s Leq |
 
-`heartbeat` (every 15 minutes): `node`, `dist_ft`, `amb`, `leq` (energy average since the last heartbeat), `soc` (battery %), `busy`.
+`heartbeat` (every 15 minutes): `node`, `dist_ft`, `amb`, `leq` (energy average since the last heartbeat), `soc` (battery %, -1 on an Argon bench unit, which has no fuel gauge), `busy`.
 
 ## Crossing lights node
 
@@ -58,7 +58,7 @@ A fifth, separate Boron watches the crossing's flashing lights with two light se
 ## Setup
 
 1. Flash each Boron from Particle Workbench or `particle compile boron` (the PDM library is vendored in `lib/`).
-2. Set each node's ID, distance and calibration offset with the `config` cloud function, for example `node=1,dist=50,cal=0`.
+2. Set each node's ID, distance and calibration offset with the `config` cloud function, for example `node=1,dist=50,cal=0`. A bench unit adds `test=1` so its events stay out of the live record.
 3. Calibrate: hold a reference sound level meter next to the node, compare against the `dba` cloud variable, and set `cal` to the difference.
 
 ## Tests
@@ -67,6 +67,7 @@ The detection pipelines have no Particle dependencies and are tested on a PC wit
 
 ```sh
 make -C test
+python3 tools/bench/run_scenarios.py   # nine crossing scenarios through the detectors and FRA checks
 ```
 
-The same command runs the crossing lights node's tests. CI runs them and compiles both firmwares on every pull request.
+The same `make` command runs the crossing lights node's tests. CI runs all of them and compiles both firmwares for Boron and Argon on every pull request. See [docs/bench-testing.md](docs/bench-testing.md) for the scenarios and for playing them at a Wi-Fi bench unit in test mode.
