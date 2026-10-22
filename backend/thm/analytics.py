@@ -82,7 +82,9 @@ def dnl_series(conn, tz_name, days=30, now=None):
     now = now or datetime.now(tz)
     last = now.astimezone(tz).date() - timedelta(days=1)  # today isn't complete yet
     dates = [last - timedelta(days=i) for i in range(days - 1, -1, -1)]
-    nodes = conn.execute("SELECT DISTINCT node, dist_ft FROM heartbeats ORDER BY dist_ft").fetchall()
+    nodes = conn.execute(
+        "SELECT DISTINCT node, dist_ft FROM heartbeats WHERE leq IS NOT NULL ORDER BY dist_ft"  # sound nodes only
+    ).fetchall()
     series = []
     for n in nodes:
         start_ms, _ = metrics.day_bounds_ms(dates[0], tz)
@@ -116,6 +118,7 @@ def crossing_log(conn, tz_name, limit=50):
             "train_duration_s": s["train_duration_s"],
             "horn_lead_s": s["horn_lead_s"],
             "bell_lead_s": s["bell_lead_s"],
+            "lights_lead_s": s["lights_lead_s"],
             "peak_dba": nearest.get("peak_dba"),
             "peak_dist_ft": nearest.get("dist_ft"),
             "checks": {c["rule"]: c["status"] for c in s["checks"]},

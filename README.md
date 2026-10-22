@@ -51,6 +51,10 @@ All thresholds live in [`src/config.h`](src/config.h). They are starting estimat
 
 `heartbeat` (every 15 minutes): `node`, `dist_ft`, `amb`, `leq` (energy average since the last heartbeat), `soc` (battery %), `busy`.
 
+## Crossing lights node
+
+A fifth, separate Boron watches the crossing's flashing lights with two light sensors, from off the right of way. Its activations give the measured start of each warning, which the backend uses for the warning time check in place of the bell. Firmware, wiring and placement are in [`flasher/`](flasher/README.md).
+
 ## Setup
 
 1. Flash each Boron from Particle Workbench or `particle compile boron` (the PDM library is vendored in `lib/`).
@@ -59,10 +63,10 @@ All thresholds live in [`src/config.h`](src/config.h). They are starting estimat
 
 ## Tests
 
-The detection pipeline has no Particle dependencies and is tested on a PC with synthetic bell, horn and train signals:
+The detection pipelines have no Particle dependencies and are tested on a PC with synthetic bell, horn, train and light signals:
 
 ```sh
 make -C test
 ```
 
-CI runs these tests and a Boron compile on every pull request.
+The same command runs the crossing lights node's tests. CI runs them and compiles both firmwares on every pull request.

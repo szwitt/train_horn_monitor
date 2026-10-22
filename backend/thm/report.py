@@ -30,6 +30,10 @@ def crossing_text(crossing_id, ref_ms, summary, tz_name):
         lines.append(f"Horn lead {summary['horn_lead_s']:.1f} s")
     if summary["bell_lead_s"] is not None:
         lines.append(f"Bell lead {summary['bell_lead_s']:.1f} s")
+    if summary["lights_lead_s"] is not None:
+        lines.append(f"Lights lead {summary['lights_lead_s']:.1f} s")
+    if summary["lights_duration_s"] is not None:
+        lines.append(f"Lights flashed for {summary['lights_duration_s']:.0f} s")
     lines.append("")
     lines.append("Levels by distance:")
     for n in summary["nodes"]:

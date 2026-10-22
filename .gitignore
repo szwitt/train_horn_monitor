@@ -2,3 +2,4 @@ target/
 *.bin
 test/test_runner
 .DS_Store
+test/lights_runner

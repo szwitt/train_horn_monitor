@@ -2,6 +2,9 @@
 
 Each node publishes one "crossing" event per train. Events from the four
 nodes that describe the same train are grouped into one crossing by time.
+The crossing lights node publishes the same event with "kind": "lights"
+and a "flash" section, which joins the train that arrived while the lights
+were flashing.
 """
 
 import json
@@ -9,6 +12,12 @@ from datetime import datetime
 
 # Node events whose reference times are this close belong to the same train.
 GROUP_WINDOW_MS = 60_000
+# The train usually reaches the crossing this long after the lights start
+# (20 s minimum warning plus a margin). Used to place a lights event among
+# the sound reports.
+LIGHTS_TO_ARRIVAL_MS = 25_000
+# A train counts as arriving during the lights if within this much of them.
+LIGHTS_SLACK_MS = 10_000
 
 
 def parse_published_at(value):
@@ -20,9 +29,18 @@ def event_t0_ms(data):
     return int(data["t0"]) * 1000 + int(data.get("t0_ms", 0))
 
 
+def is_lights(data):
+    return data.get("kind") == "lights"
+
+
 def event_ref_ms(data):
-    """Best single time for the train at this node: train start, else horn, else bell."""
+    """Best single time for the train at this node: train start, else horn, else bell.
+
+    For the lights node, the expected arrival after the lights start.
+    """
     t0 = event_t0_ms(data)
+    if is_lights(data):
+        return t0 + int(data["flash"]["s"]) + LIGHTS_TO_ARRIVAL_MS
     for key in ("train", "horn", "bell"):
         if key in data:
             return t0 + int(data[key]["s"])
@@ -33,9 +51,16 @@ def store_crossing_event(conn, device_id, data, received_at):
     """Stores one node's crossing report and returns the crossing id it joined."""
     ref = event_ref_ms(data)
     node = int(data["node"])
+    if is_lights(data):
+        # Any train that arrived while the lights were flashing
+        t0 = event_t0_ms(data)
+        lo = t0 + int(data["flash"]["s"]) - LIGHTS_SLACK_MS
+        hi = t0 + int(data["flash"]["e"]) + LIGHTS_SLACK_MS
+    else:
+        lo, hi = ref - GROUP_WINDOW_MS, ref + GROUP_WINDOW_MS
     rows = conn.execute(
         "SELECT id, ref_ms FROM crossings WHERE ref_ms BETWEEN ? AND ? ORDER BY ABS(ref_ms - ?)",
-        (ref - GROUP_WINDOW_MS, ref + GROUP_WINDOW_MS, ref),
+        (lo, hi, ref),
     ).fetchall()
     crossing_id = None
     for row in rows:

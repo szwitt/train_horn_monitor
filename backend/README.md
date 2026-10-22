@@ -1,6 +1,6 @@
 # Backend
 
-Receives each node's `crossing` and `heartbeat` events from a Particle webhook, groups the four nodes' reports into one record per train, runs the FRA checks, and computes the community noise metrics for the quiet zone case at crossing 085770G (Atchinson Rd, Olympia).
+Receives each node's `crossing` and `heartbeat` events from a Particle webhook, groups the four sound nodes' reports and the crossing lights node's report into one record per train, runs the FRA checks, and computes the community noise metrics for the quiet zone case at crossing 085770G (Atchinson Rd, Olympia).
 
 ## What it produces
 
@@ -11,6 +11,8 @@ Crossing 1 at 2026-10-19 23:10:32 PDT
 Train took 25 s to pass
 Horn lead 16.0 s
 Bell lead 32.7 s
+Lights lead 32.7 s
+Lights flashed for 62 s
 
 Levels by distance:
   50 ft (node 1): ambient 49.0 peak 96.0 SEL 107.0 dB(A)
@@ -21,7 +23,7 @@ FRA checks:
   Horn pattern (49 CFR 222.21(a)): Pass. Long-long-short-long heard (LLSL at 50 ft; 4 of 4 nodes agree)
   Horn held to crossing (49 CFR 222.21(a)): Pass. Horn sounded until the train reached the crossing
   Horn loudness (49 CFR 229.129): Indicator. 92.0 dB(A) at 100 ft, below the 96 dB(A) minimum (wayside estimate only)
-  Warning time (49 CFR 234.225): Pass. Bell started 32.7 s before arrival (at least 20 s)
+  Warning time (49 CFR 234.225): Pass. Lights started 32.7 s before arrival (at least 20 s); bell heard 32.7 s before
 ```
 
 **Per day** (`GET /api/daily/2026-10-19`): day-night level (DNL) for each node, number of crossings, crossings at night (10 pm to 7 am) and night crossings with the horn sounded. DNL needs at least 80% of a day's 15-minute heartbeats.
@@ -34,9 +36,9 @@ FRA checks:
 | Horn pattern | Long-long-short-long heard at any node | Fails if no node heard it |
 | Horn held to crossing | Last blast ends within 3 s of arrival | Fails otherwise |
 | Horn loudness | Always an **indicator**, from the node nearest 100 ft | Wayside readings can't reproduce the FRA test |
-| Warning time | Bell starts at least 20 s before arrival | Fails under 20 s |
+| Warning time | Lights (or, without the lights node, the bell) start at least 20 s before arrival | Fails under 20 s. Lights with no train heard is **not detected**. |
 
-Arrival is the train start heard at the node nearest the track. Horn start is the earliest horn heard by any node.
+Arrival is the train start heard at the node nearest the track. Horn start is the earliest horn heard by any node. Lights start is the first flash seen by the [crossing lights node](../flasher/README.md); its report joins the train that arrived while the lights were flashing (within 10 s either side), and is left out of the levels table and the day-night levels.
 
 ## Dashboard and embeds
 

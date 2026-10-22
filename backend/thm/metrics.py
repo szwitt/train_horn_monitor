@@ -55,7 +55,8 @@ def daily_summary(conn, day, tz_name):
     start_ms, end_ms = day_bounds_ms(day, tz)
 
     nodes = []
-    for row in conn.execute("SELECT DISTINCT node, dist_ft FROM heartbeats ORDER BY dist_ft"):
+    sound_nodes = "SELECT DISTINCT node, dist_ft FROM heartbeats WHERE leq IS NOT NULL ORDER BY dist_ft"
+    for row in conn.execute(sound_nodes):
         beats = conn.execute(
             "SELECT ts_ms, leq FROM heartbeats WHERE node = ? AND ts_ms > ? AND ts_ms <= ?",
             (row["node"], start_ms, end_ms + HEARTBEAT_MINUTES * 60_000),

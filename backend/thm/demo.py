@@ -66,6 +66,13 @@ def seed(path, tz_name="America/Los_Angeles", days=30, seed_value=7):
                     data["bell"] = {"s": arrival - 24_000 - rnd.randrange(8_000), "e": arrival + 25_000,
                                     "n": 160, "iv": 340}
                 ingest.store_crossing_event(conn, f"dev{node}", data, when.isoformat())
+            # The lights node: flashing from the warning start until the train has passed
+            lights_s = arrival - 22_000 - rnd.randrange(12_000)
+            lights_e = arrival + 45_000 + rnd.randrange(10_000)
+            ingest.store_crossing_event(conn, "dev5", {
+                "v": 1, "kind": "lights", "node": 5, "dist_ft": 120, "t0": t0 + lights_s // 1000,
+                "t0_ms": lights_s % 1000, "flash": {"s": 0, "e": lights_e - lights_s, "n": 55, "fpm": 50.0,
+                                                    "alt": True, "lamps": 2}}, when.isoformat())
     conn.close()
 
 
