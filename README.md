@@ -2,7 +2,7 @@
 
 Firmware for a network of identical sound monitoring nodes at a rail crossing. Each node hears the crossing bell, the train horn and the train passing, and publishes one summary per train to the Particle Cloud. Four nodes at different distances from the track show how far the noise reaches into the neighborhood and whether the horn and bell timing meets FRA rules.
 
-Design notes and the FRA rules being checked: [Design and Rules Brief](https://claude.ai/code/artifact/fa282163-9194-486d-a7fc-831afe650004).
+Design notes and the FRA rules being checked: [Design and Rules Brief](https://claude.ai/code/artifact/fa282163-9194-486d-a7fc-831afe650004). An evaluation of moving the node links from Particle cellular to LoRa is in [docs/lora-evaluation.md](docs/lora-evaluation.md).
 
 ## Hardware (per node)
 
